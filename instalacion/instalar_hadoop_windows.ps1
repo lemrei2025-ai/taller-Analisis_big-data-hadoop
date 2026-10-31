@@ -19,25 +19,57 @@
 .PARAMETER HadoopHome
     Carpeta de instalación (sin espacios ni tildes). Por defecto C:\hadoop.
 
+.PARAMETER CarpetaWinutils
+    Carpeta donde ya están winutils.exe y hadoop.dll descargados manualmente
+    (por ejemplo, si la red bloquea GitHub). Por defecto se buscan también en
+    instalacion\winutils\ del repositorio.
+
 .PARAMETER Archivo
     Ruta a un hadoop-3.3.6.tar.gz ya descargado (útil en salas con conexión lenta:
     el docente descarga una vez y lo comparte por USB o red local).
 #>
 param(
     [string]$HadoopHome = "C:\hadoop",
-    [string]$Archivo = ""
+    [string]$Archivo = "",
+    [string]$CarpetaWinutils = ""
 )
 
 # "Continue": los programas de Hadoop escriben su registro en stderr y no debe tratarse como error.
 $ErrorActionPreference = "Continue"
 $Version = "3.3.6"
 $UrlHadoop = "https://archive.apache.org/dist/hadoop/common/hadoop-$Version/hadoop-$Version.tar.gz"
-$UrlWinutils = "https://raw.githubusercontent.com/cdarlint/winutils/master/hadoop-$Version/bin"
+# Varias direcciones del mismo archivo, por si la red bloquea alguna
+$UrlsWinutils = @(
+    "https://raw.githubusercontent.com/cdarlint/winutils/master/hadoop-$Version/bin",
+    "https://github.com/cdarlint/winutils/raw/master/hadoop-$Version/bin",
+    "https://cdn.jsdelivr.net/gh/cdarlint/winutils@master/hadoop-$Version/bin"
+)
 
 function Paso($texto) { Write-Host "`n==> $texto" -ForegroundColor Cyan }
 function Ok($texto)   { Write-Host "    [OK] $texto" -ForegroundColor Green }
 function Aviso($texto){ Write-Host "    [!]  $texto" -ForegroundColor Yellow }
 function Falla($texto){ Write-Host "    [X]  $texto" -ForegroundColor Red; exit 1 }
+
+function Descargar([string]$url, [string]$destino) {
+    # Intenta con curl.exe; si falla (p. ej. antivirus o proxy que impiden validar
+    # la revocación del certificado), reintenta con --ssl-no-revoke y luego con
+    # Invoke-WebRequest. Devuelve $true si el archivo quedó descargado.
+    Remove-Item $destino -Force -ErrorAction SilentlyContinue
+    foreach ($extra in @(@(), @("--ssl-no-revoke"))) {
+        $salida = & curl.exe -L --fail --retry 2 -sS @extra -o $destino $url 2>&1
+        if ($LASTEXITCODE -eq 0 -and (Test-Path $destino) -and (Get-Item $destino).Length -gt 0) { return $true }
+        Write-Host "      curl: $salida" -ForegroundColor DarkGray
+    }
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -Uri $url -OutFile $destino -UseBasicParsing -ErrorAction Stop
+        if ((Get-Item $destino).Length -gt 0) { return $true }
+    } catch {
+        Write-Host "      Invoke-WebRequest: $($_.Exception.Message)" -ForegroundColor DarkGray
+    }
+    Remove-Item $destino -Force -ErrorAction SilentlyContinue
+    return $false
+}
 
 function RutaCorta([string]$ruta) {
     # Hadoop para Windows falla si JAVA_HOME contiene espacios (ej. "C:\Program Files\...").
@@ -89,29 +121,49 @@ Ok ((& python --version) + " en " + $py.Source)
 
 # ---------------------------------------------------------------------------
 Paso "Instalando Hadoop $Version en $HadoopHome"
+$padre = Split-Path -Parent $HadoopHome
+$extraido = Join-Path $padre "hadoop-$Version"
+
 if (Test-Path "$HadoopHome\bin\hdfs.cmd") {
-    Ok "Hadoop ya está extraído en $HadoopHome (se omite la descarga)"
+    Ok "Hadoop ya está instalado en $HadoopHome (se omite la descarga)"
 } else {
-    if (-not $Archivo) {
-        $Archivo = Join-Path $env:TEMP "hadoop-$Version.tar.gz"
-        if (-not (Test-Path $Archivo)) {
-            Write-Host "    Descargando $UrlHadoop (~700 MB, puede tardar varios minutos)..."
-            & curl.exe -L --fail --retry 3 -o $Archivo $UrlHadoop
-            if ($LASTEXITCODE -ne 0) { Falla "No se pudo descargar Hadoop. Descárguelo manualmente y use -Archivo <ruta>." }
+    # 1) Extraer, salvo que un intento anterior ya haya dejado la carpeta extraída
+    if (Test-Path "$extraido\bin\hdfs.cmd") {
+        Ok "Se reutiliza la carpeta ya extraída $extraido"
+    } else {
+        if (-not $Archivo) {
+            $Archivo = Join-Path $env:TEMP "hadoop-$Version.tar.gz"
+            if (-not (Test-Path $Archivo)) {
+                Write-Host "    Descargando $UrlHadoop (~700 MB, puede tardar varios minutos)..."
+                if (-not (Descargar $UrlHadoop $Archivo)) { Falla "No se pudo descargar Hadoop. Descárguelo manualmente y use -Archivo <ruta>." }
+            }
+        }
+        if (-not (Test-Path $Archivo)) { Falla "No existe el archivo $Archivo" }
+
+        Write-Host "    Extrayendo en $padre (puede tardar unos minutos)..."
+        # Algunas entradas del .tar.gz son enlaces simbólicos de librerías de Linux;
+        # los avisos sobre ellos no afectan la instalación en Windows.
+        & "$env:SystemRoot\System32\tar.exe" -xzf $Archivo -C $padre 2>$null
+        if (-not (Test-Path "$extraido\bin\hdfs.cmd")) {
+            Falla "La extracción no se completó. Borre $Archivo y $extraido y ejecute de nuevo el script."
         }
     }
-    if (-not (Test-Path $Archivo)) { Falla "No existe el archivo $Archivo" }
 
-    $padre = Split-Path -Parent $HadoopHome
-    Write-Host "    Extrayendo en $padre (puede tardar unos minutos)..."
-    # Algunas entradas del .tar.gz son enlaces simbólicos de librerías de Linux;
-    # los avisos sobre ellos no afectan la instalación en Windows.
-    & "$env:SystemRoot\System32\tar.exe" -xzf $Archivo -C $padre 2>$null
-    $extraido = Join-Path $padre "hadoop-$Version"
-    if (-not (Test-Path "$extraido\bin\hdfs.cmd")) { Falla "La extracción no se completó correctamente." }
-    if ($extraido -ne $HadoopHome) { Rename-Item $extraido (Split-Path -Leaf $HadoopHome) }
-    if (-not (Test-Path "$HadoopHome\bin\hdfs.cmd")) { Falla "No se pudo renombrar $extraido a $HadoopHome (¿ya existe esa carpeta?)" }
-    Ok "Hadoop extraído en $HadoopHome"
+    # 2) Ubicar los archivos en $HadoopHome
+    if ($extraido -ne $HadoopHome) {
+        if (-not (Test-Path $HadoopHome)) {
+            Rename-Item $extraido (Split-Path -Leaf $HadoopHome)
+        } else {
+            # La carpeta destino ya existe (intento anterior, carpeta creada a mano, etc.):
+            # se combinan los contenidos sin borrar lo que ya hubiera (por ejemplo data\).
+            Write-Host "    $HadoopHome ya existe; se mueven allí los archivos de $extraido ..."
+            & robocopy.exe $extraido $HadoopHome /E /MOVE /NFL /NDL /NJH /NJS /NP | Out-Null
+            if ($LASTEXITCODE -ge 8) { Falla "No se pudieron mover los archivos a $HadoopHome (código robocopy $LASTEXITCODE)." }
+            Remove-Item $extraido -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    if (-not (Test-Path "$HadoopHome\bin\hdfs.cmd")) { Falla "Hadoop no quedó en $HadoopHome. Revise que ningún programa tenga abierta esa carpeta." }
+    Ok "Hadoop instalado en $HadoopHome"
 }
 
 # Los scripts sin extensión de bin\ (hadoop, hdfs, mapred, yarn) son para Linux.
@@ -122,11 +174,31 @@ foreach ($s in "hadoop", "hdfs", "mapred", "yarn") {
 
 # ---------------------------------------------------------------------------
 Paso "Instalando binarios nativos para Windows (winutils.exe, hadoop.dll)"
+$locales = @($CarpetaWinutils, (Join-Path $PSScriptRoot "winutils")) | Where-Object { $_ }
 foreach ($binario in @("winutils.exe", "hadoop.dll")) {
     $destino = "$HadoopHome\bin\$binario"
-    if (-not (Test-Path $destino)) {
-        & curl.exe -L --fail --retry 3 -s -o $destino "$UrlWinutils/$binario"
-        if ($LASTEXITCODE -ne 0) { Falla "No se pudo descargar $binario desde $UrlWinutils" }
+    if ((Test-Path $destino) -and (Get-Item $destino).Length -gt 0) { Ok "$binario (ya presente)"; continue }
+
+    # 1) Copia local (descarga manual)
+    $local = $locales | ForEach-Object { Join-Path $_ $binario } | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($local) { Copy-Item $local $destino -Force; Ok "$binario copiado desde $local"; continue }
+
+    # 2) Descarga desde Internet, probando varias direcciones
+    $listo = $false
+    foreach ($base in $UrlsWinutils) {
+        Write-Host "    Descargando $binario desde $base ..."
+        if (Descargar "$base/$binario" $destino) { $listo = $true; break }
+    }
+    if (-not $listo) {
+        Falla @"
+No se pudo descargar $binario (la red puede estar bloqueando GitHub).
+         Solución manual:
+         1. En otro equipo o red, descargar winutils.exe y hadoop.dll de
+            https://github.com/cdarlint/winutils/tree/master/hadoop-$Version/bin
+            (abrir cada archivo y pulsar 'Download raw file').
+         2. Copiarlos en la carpeta  $(Join-Path $PSScriptRoot "winutils")
+         3. Ejecutar de nuevo este script.
+"@
     }
     Ok "$binario"
 }
