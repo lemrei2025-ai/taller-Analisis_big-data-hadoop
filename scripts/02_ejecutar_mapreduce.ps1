@@ -19,6 +19,26 @@ param(
 )
 . (Join-Path $PSScriptRoot "comun.ps1")
 
+Write-Host @"
+
+=====================================================================
+ CAPA 3 - PROCESAMIENTO CON MAPREDUCE (Hadoop Streaming)
+=====================================================================
+ Para cada trabajo este script:
+   1. Borra la carpeta de salida en HDFS si existía (MapReduce exige
+      que la salida no exista).
+   2. Envía a Hadoop los scripts mapper.py y reducer.py (opción -files).
+   3. Hadoop divide la entrada en bloques; cada bloque lo procesa una
+      tarea MAP que ejecuta 'python mapper.py' y emite pares clave->valor.
+   4. SHUFFLE & SORT: Hadoop agrupa y ordena los pares por clave.
+   5. Una tarea REDUCE ejecuta 'python reducer.py' y calcula los totales
+      de cada clave.
+   6. El resultado queda en HDFS: /datalake/curated/<trabajo>/part-00000
+ Mientras corre, el avance se puede ver en http://localhost:8088
+ Modo de ejecución: $Modo
+=====================================================================
+"@ -ForegroundColor Yellow
+
 $jar = Get-ChildItem "$env:HADOOP_HOME\share\hadoop\tools\lib\hadoop-streaming-*.jar" | Select-Object -First 1
 if (-not $jar) { Write-Host "[X] No se encontró hadoop-streaming-*.jar" -ForegroundColor Red; exit 1 }
 
@@ -52,16 +72,27 @@ try {
         $argumentos += @("-output", $salida)
 
         Write-Host ("`n" + "=" * 70) -ForegroundColor Cyan
-        Write-Host " Trabajo: $($t.nombre)   ($($t.job))   modo: $Modo" -ForegroundColor Cyan
+        Write-Host " Trabajo : $($t.nombre)" -ForegroundColor Cyan
         Write-Host ("=" * 70) -ForegroundColor Cyan
+        Write-Host " Qué hace: $($t.descripcion)"
+        Write-Host " Entrada : $(($t.entradas | ForEach-Object { $Config.entradas.$_.hdfs }) -join ', ')"
+        Write-Host " Código  : mapreduce\$($t.job)\mapper.py  y  reducer.py"
+        $vars = ($t.variables.PSObject.Properties | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join ", "
+        if ($vars) { Write-Host " Variables: $vars" }
+        Write-Host " Salida  : $salida"
+        Write-Host " Comando : hadoop $($argumentos -join ' ')" -ForegroundColor DarkGray
+        Write-Host " (A continuación aparece el registro de Hadoop: progreso 'map X% reduce Y%' y contadores)" -ForegroundColor DarkGray
+
         $inicio = Get-Date
         & hadoop.cmd @argumentos
         Comprobar "trabajo $($t.nombre)"
         Write-Host (">> {0} terminado en {1:N0} s -> {2}" -f $t.nombre, ((Get-Date) - $inicio).TotalSeconds, $salida) -ForegroundColor Green
+        Write-Host "   Primeras líneas del resultado (clave <TAB> valores):" -ForegroundColor Green
+        hdfs.cmd dfs -cat "$salida/part-00000" 2>$null | Select-Object -First 5 | ForEach-Object { Write-Host "     $_" }
     }
 } finally {
     Pop-Location
 }
 
-Titulo "Zona curada"
+Titulo "Zona curada (resultados en HDFS)"
 hdfs.cmd dfs -ls $Config.zona_curada

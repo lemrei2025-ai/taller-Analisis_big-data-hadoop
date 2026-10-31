@@ -160,6 +160,8 @@ cd ..
 
 ### Ejecución de todos los trabajos
 
+El script muestra, antes de cada trabajo, qué calcula, sus entradas, su salida y el comando exacto que envía a Hadoop; al terminar, muestra las primeras líneas del resultado. La explicación paso a paso está en la [Guía de comandos del README](../README.md#capa-3--procesamiento-mapreduce).
+
 ```powershell
 .\scripts\02_ejecutar_mapreduce.ps1
 # uno o varios trabajos:

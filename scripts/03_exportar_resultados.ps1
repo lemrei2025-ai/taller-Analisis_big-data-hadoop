@@ -7,6 +7,18 @@
 #>
 . (Join-Path $PSScriptRoot "comun.ps1")
 
+Write-Host @"
+
+=====================================================================
+ CAPA 4 - EXPORTAR RESULTADOS DESDE HDFS
+=====================================================================
+ Para cada trabajo terminado (carpeta con el archivo _SUCCESS),
+ 'hdfs dfs -getmerge' une los archivos part-* de HDFS en un solo
+ archivo .tsv en resultados\hadoop (en Windows). Esos archivos los
+ usan después cargar_sqlite.py, api_resultados.py y generar_reporte.py.
+=====================================================================
+"@ -ForegroundColor Yellow
+
 $destino = Join-Path $Raiz "resultados\hadoop"
 New-Item -ItemType Directory -Force -Path $destino | Out-Null
 

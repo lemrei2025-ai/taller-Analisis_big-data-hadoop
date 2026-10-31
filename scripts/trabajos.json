@@ -1,28 +1,178 @@
 {
-  "_descripcion": "Definicion comun de entradas y trabajos MapReduce. La usan probar_local.py, 01_cargar_hdfs.ps1, 02_ejecutar_mapreduce.ps1 y 03_exportar_resultados.ps1.",
+  "_descripcion": "Definición común de entradas y trabajos MapReduce. La usan probar_local.py, 01_cargar_hdfs.ps1, 02_ejecutar_mapreduce.ps1 y 03_exportar_resultados.ps1.",
   "zona_curada": "/datalake/curated",
-  "auxiliares": ["comun/texto_utils.py", "comun/lexico_sentimiento.txt", "comun/stopwords_es.txt"],
+  "auxiliares": [
+    "comun/texto_utils.py",
+    "comun/lexico_sentimiento.txt",
+    "comun/stopwords_es.txt"
+  ],
   "entradas": {
-    "clientes":      {"archivo": "clientes.csv",      "hdfs": "/datalake/raw/estructurados/clientes"},
-    "sucursales":    {"archivo": "sucursales.csv",    "hdfs": "/datalake/raw/estructurados/sucursales"},
-    "productos":     {"archivo": "productos.csv",     "hdfs": "/datalake/raw/estructurados/productos"},
-    "transacciones": {"archivo": "transacciones.csv", "hdfs": "/datalake/raw/estructurados/transacciones"},
-    "resenas":       {"archivo": "resenas.jsonl",     "hdfs": "/datalake/raw/texto/resenas"},
-    "imagenes":      {"archivo": "imagenes.jsonl",    "hdfs": "/datalake/raw/imagen/metadatos"},
-    "videos":        {"archivo": "videos.jsonl",      "hdfs": "/datalake/raw/video/metadatos"},
-    "llamadas":      {"archivo": "llamadas.jsonl",    "hdfs": "/datalake/raw/voz/llamadas"}
+    "clientes": {
+      "archivo": "clientes.csv",
+      "hdfs": "/datalake/raw/estructurados/clientes"
+    },
+    "sucursales": {
+      "archivo": "sucursales.csv",
+      "hdfs": "/datalake/raw/estructurados/sucursales"
+    },
+    "productos": {
+      "archivo": "productos.csv",
+      "hdfs": "/datalake/raw/estructurados/productos"
+    },
+    "transacciones": {
+      "archivo": "transacciones.csv",
+      "hdfs": "/datalake/raw/estructurados/transacciones"
+    },
+    "reseñas": {
+      "archivo": "reseñas.jsonl",
+      "hdfs": "/datalake/raw/texto/reseñas"
+    },
+    "imagenes": {
+      "archivo": "imagenes.jsonl",
+      "hdfs": "/datalake/raw/imagen/metadatos"
+    },
+    "videos": {
+      "archivo": "videos.jsonl",
+      "hdfs": "/datalake/raw/video/metadatos"
+    },
+    "llamadas": {
+      "archivo": "llamadas.jsonl",
+      "hdfs": "/datalake/raw/voz/llamadas"
+    }
   },
   "trabajos": [
-    {"nombre": "ventas_ciudad_categoria",  "job": "job1_ventas",      "entradas": ["transacciones"],                 "variables": {"DIMENSION": "ciudad_categoria"}, "combiner": false},
-    {"nombre": "ventas_mes",               "job": "job1_ventas",      "entradas": ["transacciones"],                 "variables": {"DIMENSION": "mes"},              "combiner": false},
-    {"nombre": "ventas_sucursal",          "job": "job1_ventas",      "entradas": ["transacciones"],                 "variables": {"DIMENSION": "sucursal"},         "combiner": false},
-    {"nombre": "sentimiento_sucursal",     "job": "job2_sentimiento", "entradas": ["resenas", "llamadas"],           "variables": {},                                "combiner": false},
-    {"nombre": "palabras_frecuentes",      "job": "job3_palabras",    "entradas": ["resenas", "llamadas", "videos"], "variables": {"NGRAMA": "1"},                   "combiner": true},
-    {"nombre": "bigramas_quejas",          "job": "job3_palabras",    "entradas": ["resenas"],                       "variables": {"NGRAMA": "2", "CALIFICACION_MAX": "2", "FUENTES": "resena"}, "combiner": true},
-    {"nombre": "imagenes_etiquetas",       "job": "job4_imagenes",    "entradas": ["imagenes"],                      "variables": {"DIMENSION": "etiqueta"},         "combiner": false},
-    {"nombre": "imagenes_ciudad_etiqueta", "job": "job4_imagenes",    "entradas": ["imagenes"],                      "variables": {"DIMENSION": "ciudad_etiqueta"},  "combiner": false},
-    {"nombre": "videos_campanas",          "job": "job5_videos",      "entradas": ["videos"],                        "variables": {},                                "combiner": false},
-    {"nombre": "llamadas_motivo",          "job": "job6_llamadas",    "entradas": ["llamadas"],                      "variables": {"DIMENSION": "motivo"},           "combiner": false},
-    {"nombre": "llamadas_sucursal",        "job": "job6_llamadas",    "entradas": ["llamadas"],                      "variables": {"DIMENSION": "sucursal"},         "combiner": false}
+    {
+      "nombre": "ventas_ciudad_categoria",
+      "descripcion": "Ventas (datos estructurados): suma ventas, unidades y calcula el ticket promedio por cada combinación ciudad + categoría de producto.",
+      "job": "job1_ventas",
+      "entradas": [
+        "transacciones"
+      ],
+      "variables": {
+        "DIMENSION": "ciudad_categoria"
+      },
+      "combiner": false
+    },
+    {
+      "nombre": "ventas_mes",
+      "descripcion": "Ventas (datos estructurados): totales por mes para detectar estacionalidad.",
+      "job": "job1_ventas",
+      "entradas": [
+        "transacciones"
+      ],
+      "variables": {
+        "DIMENSION": "mes"
+      },
+      "combiner": false
+    },
+    {
+      "nombre": "ventas_sucursal",
+      "descripcion": "Ventas (datos estructurados): totales y ticket promedio por sucursal.",
+      "job": "job1_ventas",
+      "entradas": [
+        "transacciones"
+      ],
+      "variables": {
+        "DIMENSION": "sucursal"
+      },
+      "combiner": false
+    },
+    {
+      "nombre": "sentimiento_sucursal",
+      "descripcion": "Texto + Voz: puntúa cada reseña y cada transcripción de llamada con un léxico de palabras positivas/negativas y cuenta positivos, negativos y neutros por sucursal.",
+      "job": "job2_sentimiento",
+      "entradas": [
+        "reseñas",
+        "llamadas"
+      ],
+      "variables": {},
+      "combiner": false
+    },
+    {
+      "nombre": "palabras_frecuentes",
+      "descripcion": "Texto + Voz + Video: cuenta cuantas veces aparece cada palabra (sin palabras vacías) en reseñas, llamadas y transcripciones de videos. Usa combiner.",
+      "job": "job3_palabras",
+      "entradas": [
+        "reseñas",
+        "llamadas",
+        "videos"
+      ],
+      "variables": {
+        "NGRAMA": "1"
+      },
+      "combiner": true
+    },
+    {
+      "nombre": "bigramas_quejas",
+      "descripcion": "Texto: cuenta los pares de palabras más frecuentes solo en reseñas de 1 y 2 estrellas, para descubrir los temas de las quejas. Usa combiner.",
+      "job": "job3_palabras",
+      "entradas": [
+        "reseñas"
+      ],
+      "variables": {
+        "NGRAMA": "2",
+        "CALIFICACION_MAX": "2",
+        "FUENTES": "resena"
+      },
+      "combiner": true
+    },
+    {
+      "nombre": "imagenes_etiquetas",
+      "descripcion": "Imagen: cuenta cuantas fotos contienen cada etiqueta detectada (taza, postre, logo...) y su sentimiento visual promedio.",
+      "job": "job4_imagenes",
+      "entradas": [
+        "imagenes"
+      ],
+      "variables": {
+        "DIMENSION": "etiqueta"
+      },
+      "combiner": false
+    },
+    {
+      "nombre": "imagenes_ciudad_etiqueta",
+      "descripcion": "Imagen: igual que el anterior, pero separado por ciudad.",
+      "job": "job4_imagenes",
+      "entradas": [
+        "imagenes"
+      ],
+      "variables": {
+        "DIMENSION": "ciudad_etiqueta"
+      },
+      "combiner": false
+    },
+    {
+      "nombre": "videos_campanas",
+      "descripcion": "Video: suma reproducciones e interacciones por campaña y plataforma; calcula tasa de engagement y retención promedio.",
+      "job": "job5_videos",
+      "entradas": [
+        "videos"
+      ],
+      "variables": {},
+      "combiner": false
+    },
+    {
+      "nombre": "llamadas_motivo",
+      "descripcion": "Voz: número de llamadas, duración promedio y porcentaje resuelto por motivo de la llamada.",
+      "job": "job6_llamadas",
+      "entradas": [
+        "llamadas"
+      ],
+      "variables": {
+        "DIMENSION": "motivo"
+      },
+      "combiner": false
+    },
+    {
+      "nombre": "llamadas_sucursal",
+      "descripcion": "Voz: número de llamadas, duración promedio y porcentaje resuelto por sucursal.",
+      "job": "job6_llamadas",
+      "entradas": [
+        "llamadas"
+      ],
+      "variables": {
+        "DIMENSION": "sucursal"
+      },
+      "combiner": false
+    }
   ]
 }

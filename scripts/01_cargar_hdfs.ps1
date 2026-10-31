@@ -7,6 +7,24 @@
 #>
 . (Join-Path $PSScriptRoot "comun.ps1")
 
+Write-Host @"
+
+=====================================================================
+ CAPA 2 - ALMACENAMIENTO EN HDFS
+=====================================================================
+ Este script:
+   1. Crea en HDFS las zonas del data lake: raw (datos crudos),
+      staged (datos depurados) y curated (resultados).
+   2. Copia cada archivo de datos\raw (en Windows) a su carpeta en
+      HDFS con 'hdfs dfs -put'. HDFS lo divide en bloques y los
+      guarda en el DataNode (C:\hadoop\data\dfs\datanode).
+   3. Muestra el contenido, el espacio usado y los bloques del
+      archivo de transacciones.
+ Para verlo gráficamente: http://localhost:9870 > Utilities >
+ Browse the file system > /datalake
+=====================================================================
+"@ -ForegroundColor Yellow
+
 Titulo "Creando zonas del data lake"
 hdfs.cmd dfs -mkdir -p /datalake/raw /datalake/staged $Config.zona_curada `
     /datalake/raw/multimedia/imagenes /datalake/raw/multimedia/videos /datalake/raw/multimedia/audios

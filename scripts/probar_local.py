@@ -46,6 +46,9 @@ def main():
         if args and t["nombre"] not in args:
             continue
         carpeta = os.path.join(RAIZ, "mapreduce", t["job"])
+        for e in t["entradas"]:
+            if not os.path.exists(os.path.join(RAIZ, "datos", "raw", CONFIG["entradas"][e]["archivo"])):
+                sys.exit("No existen los datos de entrada. Ejecute primero: python recopilacion\\generar_datos.py")
         entrada = b"".join(
             open(os.path.join(RAIZ, "datos", "raw", CONFIG["entradas"][e]["archivo"]), "rb").read()
             for e in t["entradas"])
