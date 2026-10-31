@@ -17,7 +17,7 @@ import csv
 import os
 import sqlite3
 
-from esquema_resultados import ESQUEMAS, RAIZ, carpeta_resultados, leer_resultado
+from esquema_resultados import ESQUEMAS, RAIZ, carpeta_resultados, exigir_completos, leer_resultado
 
 
 def tipo_sql(valor):
@@ -51,6 +51,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--origen", choices=["auto", "hadoop", "local"], default="auto")
     args = ap.parse_args()
+    exigir_completos(args.origen)
 
     ruta_db = os.path.join(RAIZ, "resultados", "analitica.db")
     con = sqlite3.connect(ruta_db)

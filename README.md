@@ -268,9 +268,9 @@ Los 11 trabajos que se ejecutan:
 
 | Comando | Qué hace |
 |---|---|
-| `.\scripts\03_exportar_resultados.ps1` | Para cada trabajo terminado (carpeta con el archivo `_SUCCESS`) ejecuta `hdfs dfs -getmerge`, que une los archivos `part-*` de HDFS en un solo `.tsv` en `resultados\hadoop\` (en Windows). |
+| `.\scripts\03_exportar_resultados.ps1` | Revisa en HDFS qué trabajos terminaron (carpeta con el archivo `_SUCCESS`) y descarga sus archivos `part-*` mediante la API WebHDFS, uniéndolos en un solo `.tsv` en `resultados\hadoop\` (en Windows). Equivale a `hdfs dfs -getmerge /datalake/curated/<trabajo> resultados\hadoop\<trabajo>.tsv`. Al final muestra un resumen con los trabajos que faltan o fallaron y el comando para ejecutarlos. |
 | `.\scripts\webhdfs_ejemplos.ps1` | Consulta HDFS **por HTTP** (API REST WebHDFS), sin usar comandos de Hadoop: lista la zona curada (`op=LISTSTATUS`), resume el espacio (`op=GETCONTENTSUMMARY`), lee un resultado (`op=OPEN`) y muestra metadatos de un archivo (`op=GETFILESTATUS`). Así es como otra aplicación accedería a los datos. |
-| `python acceso\cargar_sqlite.py` | Crea la base de datos `resultados\analitica.db` (SQLite) con una tabla por resultado y la vista `v_tablero_sucursal`, que une ventas, reseñas y llamadas por sucursal. Usa `resultados\hadoop\` si existe; si no, `resultados\local\`. |
+| `python acceso\cargar_sqlite.py` | Verifica que estén los 11 resultados (si falta alguno, indica cuál y cómo generarlo). Crea la base de datos `resultados\analitica.db` (SQLite) con una tabla por resultado y la vista `v_tablero_sucursal`, que une ventas, reseñas y llamadas por sucursal. Usa `resultados\hadoop\` si existe; si no, `resultados\local\`. |
 | **DB Browser for SQLite** → *Abrir base de datos* → `resultados\analitica.db` → *Ejecutar SQL* | Permite consultar los resultados con SQL de forma gráfica. |
 | `python acceso\api_resultados.py` | Inicia un servidor web en http://localhost:8000 que entrega los resultados en formato JSON (`/tablero`, `/resultados/<tabla>?orden=...&limite=...`). Simula cómo una app o un tablero consumiría los datos. Se detiene con `Ctrl+C`. |
 | `python acceso\generar_reporte.py` | Lee los resultados, dibuja 7 gráficos (`resultados\graficos\*.png`) y escribe `resultados\reporte_resultados.md` con tablas y gráficos, que es el insumo de la capa 5. |

@@ -25,7 +25,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-from esquema_resultados import RAIZ, carpeta_resultados, leer_resultado  # noqa: E402
+from esquema_resultados import RAIZ, carpeta_resultados, exigir_completos, leer_resultado  # noqa: E402
 
 AZUL, ROJO, GRIS = "#2a78d6", "#e34948", "#b8b7b2"
 TINTA, TINTA_2 = "#0b0b0b", "#52514e"
@@ -88,6 +88,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--origen", choices=["auto", "hadoop", "local"], default="auto")
     origen = ap.parse_args().origen
+    exigir_completos(origen)
     leer = lambda n: leer_resultado(n, origen)  # noqa: E731
     suc = nombres_sucursal()
     secciones = [

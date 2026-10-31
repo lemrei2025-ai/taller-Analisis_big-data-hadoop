@@ -56,3 +56,21 @@ def leer_resultado(nombre, origen="auto"):
             valores = registro[0].split("|") + registro[1:]
             filas.append({c: _convertir(v) for c, v in zip(columnas, valores)})
     return filas
+
+
+def faltantes(origen="auto"):
+    """Nombres de los resultados que no existen en la carpeta de origen."""
+    carpeta = carpeta_resultados(origen)
+    return [n for n in ESQUEMAS if not os.path.exists(os.path.join(carpeta, f"{n}.tsv"))]
+
+
+def exigir_completos(origen="auto"):
+    """Detiene el programa con un mensaje claro si falta algún resultado."""
+    falta = faltantes(origen)
+    if falta:
+        carpeta = os.path.relpath(carpeta_resultados(origen), RAIZ)
+        raise SystemExit(
+            f"Faltan {len(falta)} resultado(s) en {carpeta}: {', '.join(falta)}\n"
+            f"Ejecútelos con:  .\\scripts\\02_ejecutar_mapreduce.ps1 -Trabajo {','.join(falta)}\n"
+            f"y luego:         .\\scripts\\03_exportar_resultados.ps1\n"
+            f"(Para usar los resultados de la simulación local: agregar --origen local)")

@@ -23,9 +23,9 @@
       "archivo": "transacciones.csv",
       "hdfs": "/datalake/raw/estructurados/transacciones"
     },
-    "reseñas": {
-      "archivo": "reseñas.jsonl",
-      "hdfs": "/datalake/raw/texto/reseñas"
+    "resenas": {
+      "archivo": "resenas.jsonl",
+      "hdfs": "/datalake/raw/texto/resenas"
     },
     "imagenes": {
       "archivo": "imagenes.jsonl",
@@ -82,7 +82,7 @@
       "descripcion": "Texto + Voz: puntúa cada reseña y cada transcripción de llamada con un léxico de palabras positivas/negativas y cuenta positivos, negativos y neutros por sucursal.",
       "job": "job2_sentimiento",
       "entradas": [
-        "reseñas",
+        "resenas",
         "llamadas"
       ],
       "variables": {},
@@ -93,7 +93,7 @@
       "descripcion": "Texto + Voz + Video: cuenta cuantas veces aparece cada palabra (sin palabras vacías) en reseñas, llamadas y transcripciones de videos. Usa combiner.",
       "job": "job3_palabras",
       "entradas": [
-        "reseñas",
+        "resenas",
         "llamadas",
         "videos"
       ],
@@ -107,7 +107,7 @@
       "descripcion": "Texto: cuenta los pares de palabras más frecuentes solo en reseñas de 1 y 2 estrellas, para descubrir los temas de las quejas. Usa combiner.",
       "job": "job3_palabras",
       "entradas": [
-        "reseñas"
+        "resenas"
       ],
       "variables": {
         "NGRAMA": "2",
