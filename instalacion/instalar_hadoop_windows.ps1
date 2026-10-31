@@ -124,46 +124,88 @@ Paso "Instalando Hadoop $Version en $HadoopHome"
 $padre = Split-Path -Parent $HadoopHome
 $extraido = Join-Path $padre "hadoop-$Version"
 
-if (Test-Path "$HadoopHome\bin\hdfs.cmd") {
-    Ok "Hadoop ya está instalado en $HadoopHome (se omite la descarga)"
+# Archivos que deben existir para considerar completa una instalación
+$Clave = @(
+    "bin\hdfs.cmd",
+    "libexec\hadoop-config.cmd",
+    "share\hadoop\common\hadoop-common-$Version.jar",
+    "share\hadoop\hdfs\hadoop-hdfs-$Version.jar",
+    "share\hadoop\mapreduce\hadoop-mapreduce-client-core-$Version.jar",
+    "share\hadoop\yarn\hadoop-yarn-server-nodemanager-$Version.jar",
+    "share\hadoop\tools\lib\hadoop-streaming-$Version.jar"
+)
+function Faltantes([string]$base) { $Clave | Where-Object { -not (Test-Path (Join-Path $base $_)) } }
+
+function ArchivoValido([string]$ruta) {
+    # Compara el SHA-512 del .tar.gz con el publicado por Apache (detecta descargas incompletas)
+    if (-not (Test-Path $ruta)) { return $false }
+    $sha = Join-Path $env:TEMP "hadoop-$Version.tar.gz.sha512"
+    if (-not (Descargar "$UrlHadoop.sha512" $sha)) {
+        Aviso "No se pudo obtener el SHA-512 oficial; se omite la verificación del archivo."
+        return $true
+    }
+    $esperado = ([regex]::Match((Get-Content $sha -Raw), "[0-9a-fA-F]{128}")).Value.ToLower()
+    Write-Host "    Verificando la integridad de $ruta ..."
+    $real = (Get-FileHash $ruta -Algorithm SHA512).Hash.ToLower()
+    return ($esperado -and $esperado -eq $real)
+}
+
+$faltan = @(Faltantes $HadoopHome)
+if ($faltan.Count -eq 0) {
+    Ok "Hadoop ya está instalado completo en $HadoopHome (se omite la descarga)"
 } else {
-    # 1) Extraer, salvo que un intento anterior ya haya dejado la carpeta extraída
-    if (Test-Path "$extraido\bin\hdfs.cmd") {
-        Ok "Se reutiliza la carpeta ya extraída $extraido"
+    if (Test-Path "$HadoopHome\bin") {
+        Aviso "La instalación en $HadoopHome está incompleta. Faltan, entre otros:"
+        $faltan | Select-Object -First 3 | ForEach-Object { Aviso "  $_" }
+        Aviso "Se reparará con una extracción nueva."
+    }
+
+    # 1) Archivo .tar.gz verificado
+    if (-not $Archivo) { $Archivo = Join-Path $env:TEMP "hadoop-$Version.tar.gz" }
+    if (-not (ArchivoValido $Archivo)) {
+        if (Test-Path $Archivo) { Aviso "El archivo $Archivo está dañado o incompleto; se descargará de nuevo." }
+        Write-Host "    Descargando $UrlHadoop (~700 MB, puede tardar varios minutos)..."
+        if (-not (Descargar $UrlHadoop $Archivo)) { Falla "No se pudo descargar Hadoop. Descárguelo manualmente y use -Archivo <ruta>." }
+        if (-not (ArchivoValido $Archivo)) { Falla "El archivo descargado no coincide con el SHA-512 oficial. Intente de nuevo o use otra red." }
+    }
+    Ok "Archivo verificado: $Archivo"
+
+    # 2) Extracción limpia
+    if (Test-Path $extraido) { Remove-Item $extraido -Recurse -Force -ErrorAction SilentlyContinue }
+    Write-Host "    Extrayendo en $padre (2 a 5 minutos)..."
+    $log = Join-Path $env:TEMP "hadoop-extraccion.log"
+    # Los avisos sobre enlaces simbólicos de librerías de Linux (lib\native\*.so) no afectan a Windows.
+    & "$env:SystemRoot\System32\tar.exe" -xzf $Archivo -C $padre 2> $log
+    $faltan = @(Faltantes $extraido)
+    if ($faltan.Count -gt 0) {
+        Get-Content $log -Tail 5 | ForEach-Object { Write-Host "      $_" -ForegroundColor DarkGray }
+        Falla "La extracción quedó incompleta (falta $($faltan[0])). Revise el espacio libre en $padre y el antivirus. Registro: $log"
+    }
+
+    # 3) Ubicar los archivos en $HadoopHome (se conserva data\ si ya existía)
+    if (-not (Test-Path $HadoopHome)) {
+        Rename-Item $extraido (Split-Path -Leaf $HadoopHome)
     } else {
-        if (-not $Archivo) {
-            $Archivo = Join-Path $env:TEMP "hadoop-$Version.tar.gz"
-            if (-not (Test-Path $Archivo)) {
-                Write-Host "    Descargando $UrlHadoop (~700 MB, puede tardar varios minutos)..."
-                if (-not (Descargar $UrlHadoop $Archivo)) { Falla "No se pudo descargar Hadoop. Descárguelo manualmente y use -Archivo <ruta>." }
-            }
-        }
-        if (-not (Test-Path $Archivo)) { Falla "No existe el archivo $Archivo" }
+        Write-Host "    Copiando los archivos a $HadoopHome ..."
+        & robocopy.exe $extraido $HadoopHome /E /MOVE /IS /IT /NFL /NDL /NJH /NJS /NP | Out-Null
+        if ($LASTEXITCODE -ge 8) { Falla "No se pudieron copiar los archivos a $HadoopHome (código robocopy $LASTEXITCODE). Cierre ventanas o programas que usen esa carpeta." }
+        Remove-Item $extraido -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    $faltan = @(Faltantes $HadoopHome)
+    if ($faltan.Count -gt 0) { Falla "Hadoop no quedó completo en $HadoopHome (falta $($faltan[0]))." }
+    Ok "Hadoop instalado completo en $HadoopHome"
+}
 
-        Write-Host "    Extrayendo en $padre (puede tardar unos minutos)..."
-        # Algunas entradas del .tar.gz son enlaces simbólicos de librerías de Linux;
-        # los avisos sobre ellos no afectan la instalación en Windows.
-        & "$env:SystemRoot\System32\tar.exe" -xzf $Archivo -C $padre 2>$null
-        if (-not (Test-Path "$extraido\bin\hdfs.cmd")) {
-            Falla "La extracción no se completó. Borre $Archivo y $extraido y ejecute de nuevo el script."
+# Variables de otras instalaciones (por ejemplo de Spark) pueden apuntar a otra carpeta
+foreach ($v in "HADOOP_COMMON_HOME", "HADOOP_HDFS_HOME", "HADOOP_YARN_HOME", "HADOOP_MAPRED_HOME", "HADOOP_CLASSPATH") {
+    foreach ($ambito in "Machine", "User") {
+        $valor = [Environment]::GetEnvironmentVariable($v, $ambito)
+        if ($valor) {
+            Aviso "Se elimina la variable $v=$valor ($ambito), que puede confundir a Hadoop."
+            [Environment]::SetEnvironmentVariable($v, $null, $ambito)
         }
     }
-
-    # 2) Ubicar los archivos en $HadoopHome
-    if ($extraido -ne $HadoopHome) {
-        if (-not (Test-Path $HadoopHome)) {
-            Rename-Item $extraido (Split-Path -Leaf $HadoopHome)
-        } else {
-            # La carpeta destino ya existe (intento anterior, carpeta creada a mano, etc.):
-            # se combinan los contenidos sin borrar lo que ya hubiera (por ejemplo data\).
-            Write-Host "    $HadoopHome ya existe; se mueven allí los archivos de $extraido ..."
-            & robocopy.exe $extraido $HadoopHome /E /MOVE /NFL /NDL /NJH /NJS /NP | Out-Null
-            if ($LASTEXITCODE -ge 8) { Falla "No se pudieron mover los archivos a $HadoopHome (código robocopy $LASTEXITCODE)." }
-            Remove-Item $extraido -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-    if (-not (Test-Path "$HadoopHome\bin\hdfs.cmd")) { Falla "Hadoop no quedó en $HadoopHome. Revise que ningún programa tenga abierta esa carpeta." }
-    Ok "Hadoop instalado en $HadoopHome"
+    Remove-Item "Env:$v" -ErrorAction SilentlyContinue
 }
 
 # Los scripts sin extensión de bin\ (hadoop, hdfs, mapred, yarn) son para Linux.
@@ -239,7 +281,7 @@ if (Test-Path "$HadoopHome\data\dfs\namenode\current") {
     Ok "El NameNode ya estaba formateado (no se borra HDFS)"
 } else {
     & "$HadoopHome\bin\hdfs.cmd" namenode -format -force -nonInteractive 2>&1 | Select-String "successfully formatted|ERROR" | ForEach-Object { Write-Host "    $_" }
-    if (-not (Test-Path "$HadoopHome\data\dfs\namenode\current")) { Falla "No se pudo formatear el NameNode. Revise JAVA_HOME y winutils." }
+    if (-not (Test-Path "$HadoopHome\data\dfs\namenode\current")) { Falla "No se pudo formatear el NameNode. Ejecute:  hdfs namenode -format   en una terminal nueva de administrador y revise el mensaje." }
     Ok "NameNode formateado"
 }
 
