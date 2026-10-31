@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Configuracion de Hadoop para Windows (nodo unico). Se copia en C:\hadoop\etc\hadoop -->
+<configuration>
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://localhost:9000</value>
+  </property>
+  <!-- Ruta en formato /C:/... para que Hadoop la interprete correctamente en Windows -->
+  <property>
+    <name>hadoop.tmp.dir</name>
+    <value>/C:/hadoop/data/tmp</value>
+  </property>
+  <property>
+    <name>hadoop.http.staticuser.user</name>
+    <value>hadoop</value>
+  </property>
+</configuration>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <!-- Un solo DataNode: factor de replicacion 1 (en produccion suele ser 3) -->
+  <property>
+    <name>dfs.replication</name>
+    <value>1</value>
+  </property>
+  <property>
+    <name>dfs.namenode.name.dir</name>
+    <value>file:///C:/hadoop/data/dfs/namenode</value>
+  </property>
+  <property>
+    <name>dfs.datanode.data.dir</name>
+    <value>file:///C:/hadoop/data/dfs/datanode</value>
+  </property>
+  <!-- Bloque reducido (32 MB) para que se aprecie la division en bloques -->
+  <property>
+    <name>dfs.blocksize</name>
+    <value>33554432</value>
+  </property>
+  <property>
+    <name>dfs.webhdfs.enabled</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>dfs.permissions.enabled</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>dfs.namenode.http-address</name>
+    <value>localhost:9870</value>
+  </property>
+  <property>
+    <name>dfs.datanode.http.address</name>
+    <value>localhost:9864</value>
+  </property>
+  <property>
+    <name>dfs.datanode.hostname</name>
+    <value>localhost</value>
+  </property>
+</configuration>

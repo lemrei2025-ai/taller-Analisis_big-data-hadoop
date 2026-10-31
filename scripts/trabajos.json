@@ -1,0 +1,28 @@
+{
+  "_descripcion": "Definicion comun de entradas y trabajos MapReduce. La usan probar_local.py, 01_cargar_hdfs.ps1, 02_ejecutar_mapreduce.ps1 y 03_exportar_resultados.ps1.",
+  "zona_curada": "/datalake/curated",
+  "auxiliares": ["comun/texto_utils.py", "comun/lexico_sentimiento.txt", "comun/stopwords_es.txt"],
+  "entradas": {
+    "clientes":      {"archivo": "clientes.csv",      "hdfs": "/datalake/raw/estructurados/clientes"},
+    "sucursales":    {"archivo": "sucursales.csv",    "hdfs": "/datalake/raw/estructurados/sucursales"},
+    "productos":     {"archivo": "productos.csv",     "hdfs": "/datalake/raw/estructurados/productos"},
+    "transacciones": {"archivo": "transacciones.csv", "hdfs": "/datalake/raw/estructurados/transacciones"},
+    "resenas":       {"archivo": "resenas.jsonl",     "hdfs": "/datalake/raw/texto/resenas"},
+    "imagenes":      {"archivo": "imagenes.jsonl",    "hdfs": "/datalake/raw/imagen/metadatos"},
+    "videos":        {"archivo": "videos.jsonl",      "hdfs": "/datalake/raw/video/metadatos"},
+    "llamadas":      {"archivo": "llamadas.jsonl",    "hdfs": "/datalake/raw/voz/llamadas"}
+  },
+  "trabajos": [
+    {"nombre": "ventas_ciudad_categoria",  "job": "job1_ventas",      "entradas": ["transacciones"],                 "variables": {"DIMENSION": "ciudad_categoria"}, "combiner": false},
+    {"nombre": "ventas_mes",               "job": "job1_ventas",      "entradas": ["transacciones"],                 "variables": {"DIMENSION": "mes"},              "combiner": false},
+    {"nombre": "ventas_sucursal",          "job": "job1_ventas",      "entradas": ["transacciones"],                 "variables": {"DIMENSION": "sucursal"},         "combiner": false},
+    {"nombre": "sentimiento_sucursal",     "job": "job2_sentimiento", "entradas": ["resenas", "llamadas"],           "variables": {},                                "combiner": false},
+    {"nombre": "palabras_frecuentes",      "job": "job3_palabras",    "entradas": ["resenas", "llamadas", "videos"], "variables": {"NGRAMA": "1"},                   "combiner": true},
+    {"nombre": "bigramas_quejas",          "job": "job3_palabras",    "entradas": ["resenas"],                       "variables": {"NGRAMA": "2", "CALIFICACION_MAX": "2", "FUENTES": "resena"}, "combiner": true},
+    {"nombre": "imagenes_etiquetas",       "job": "job4_imagenes",    "entradas": ["imagenes"],                      "variables": {"DIMENSION": "etiqueta"},         "combiner": false},
+    {"nombre": "imagenes_ciudad_etiqueta", "job": "job4_imagenes",    "entradas": ["imagenes"],                      "variables": {"DIMENSION": "ciudad_etiqueta"},  "combiner": false},
+    {"nombre": "videos_campanas",          "job": "job5_videos",      "entradas": ["videos"],                        "variables": {},                                "combiner": false},
+    {"nombre": "llamadas_motivo",          "job": "job6_llamadas",    "entradas": ["llamadas"],                      "variables": {"DIMENSION": "motivo"},           "combiner": false},
+    {"nombre": "llamadas_sucursal",        "job": "job6_llamadas",    "entradas": ["llamadas"],                      "variables": {"DIMENSION": "sucursal"},         "combiner": false}
+  ]
+}

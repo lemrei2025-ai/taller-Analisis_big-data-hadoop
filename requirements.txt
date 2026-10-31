@@ -1,0 +1,4 @@
+# Necesario para generar el reporte con gráficos (capa 4)
+matplotlib>=3.5
+# Opcional: extracción de metadatos de imágenes reales (capa 1)
+Pillow>=9.0
